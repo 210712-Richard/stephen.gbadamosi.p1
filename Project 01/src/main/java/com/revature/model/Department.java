@@ -5,22 +5,28 @@ import java.util.List;
 
 
 public class Department {
-	private String name;
+	private Team name;
 	private List<Employee> members;
 	
-	public Department(String name) {
-		this.name = name;
+	public Department() {
+		name = Team.NONE;
+		members = new ArrayList<Employee>();
 	}
 	
-	public Department(String name, Employee boss) {
+	public Department(Team name) {
+		this.name = name;
+		members = new ArrayList<Employee>();
+	}
+	
+	public Department(Team name, Employee boss) {
 		this.name = name;
 		members.add(boss);
 	}
 	
-	public String getName() {
+	public Team getName() {
 		return name;
 	}
-	public void setName(String name) {
+	public void setName(Team name) {
 		this.name = name;
 	}
 	public List<Employee> getMembers() {
@@ -34,5 +40,8 @@ public class Department {
 		this.members = members;
 	}
 
+	public String toString() {
+		return this.name.toString();
+	}
 
 }

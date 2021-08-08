@@ -10,10 +10,12 @@ import io.javalin.plugin.json.JavalinJackson;
 public class Driver {
 	public static void main(String[] args) {
 		//instantiateDatabase();
-		
-		DataBaseCreator.createTables();
+	
+//		DataBaseInitializer.dropTables();
+		DataBaseInitializer.createTables();
+		DataBaseInitializer.populateEmployeeTable();
 //		javalin();
-		System.exit(0);
+//		System.exit(0);
 	}
 
 

@@ -40,14 +40,13 @@
 
 ## Data Design Pattern
 * Employee
-* EmployeeType
-* Form - Tuition Reimbursement Form
-* FormStatus
-* 
+* Request - Tuition Reimbursement Form
+* EmployeeService
+* Request Service
 * CassandraUtil
-* 
+* DataBaseInstatiator
 
 ## Database Tables
 * Employees
-* Forms
+* Request
 * 
