@@ -8,11 +8,11 @@ import com.revature.model.Request;
 
 public interface RequestDAO {
 
-	public void addRequest(Request req, Employee emp);
+	public void add(Request req, Employee emp);
 	
-	public void updateRequest(Request req, Employee emp);
+	public void update(Request req, Employee emp);
 	
-	public Request getRequest(UUID req_id);
+	public Request get(UUID req_id);
 	
 	public List<Request> getAllUserRequest(String username);
 	

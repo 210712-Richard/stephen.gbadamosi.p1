@@ -6,6 +6,7 @@ import java.util.List;
 
 public class Department {
 	private Team name;
+	private Employee deptHead;
 	private List<Employee> members;
 	
 	public Department() {
@@ -29,6 +30,14 @@ public class Department {
 	public void setName(Team name) {
 		this.name = name;
 	}
+	public Employee getDeptHead() {
+		return deptHead;
+	}
+
+	public void setDeptHead(Employee deptHead) {
+		this.deptHead = deptHead;
+	}
+
 	public List<Employee> getMembers() {
 		if(members == null) {
 			members = new ArrayList<Employee>();

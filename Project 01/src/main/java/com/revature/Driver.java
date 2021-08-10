@@ -3,6 +3,7 @@ package com.revature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.revature.controllers.*;
 
 import io.javalin.Javalin;
 import io.javalin.plugin.json.JavalinJackson;
@@ -11,16 +12,20 @@ public class Driver {
 	public static void main(String[] args) {
 		//instantiateDatabase();
 	
-//		DataBaseInitializer.dropTables();
+		DataBaseInitializer.dropTables();
 		DataBaseInitializer.createTables();
 		DataBaseInitializer.populateEmployeeTable();
+		DataBaseInitializer.simulateRequests();
 //		javalin();
 //		System.exit(0);
 	}
 
 
 	public static void javalin() {
-		
+		EmployeeControllerImpl empController = new EmployeeControllerImpl();
+		RequestControllerImpl reqController = new RequestControllerImpl();
+		ManagerControllerImpl mgrController = new ManagerControllerImpl();
+
 		// Set up Jackson to serialize LocalDates and LocalDateTimes
 		ObjectMapper jackson = new ObjectMapper();
 		jackson.registerModule(new JavaTimeModule());
@@ -44,17 +49,23 @@ public class Driver {
 		
 		// object::method <- Reference to a method as a function we can pass to a method
 		
-//		// As a user, I can log in.
-//		app.post("/users", uc::login);
-//		// As a user, I can register for a player account.
-//		app.put("/users/:username", uc::register);
-//		// As a user, I can log out.
-//		app.delete("/users", uc::logout);
-//		
-//		// As an admin, I can upload a picture for a Gacha
-//		app.put("/gachas/:gachaRarity/:gachaName/pictureUrl", gachaController::uploadPicture);
-//		
-//		// As a user, I can download a picture for a Gacha
-//		app.get("/gachas/:gachaRarity/:gachaName/pictureUrl", gachaController::getPicture);
+		// As an employee, I can log into TRMS
+		app.post("/users", empController::login);
+		
+		// As an employee, I can submit new reimbursement requests
+//		app.post("/users/:username", uc::register);
+
+		// As an employee, I can view my request history
+		app.get("/users/:username/requests", empController::getRequestHistory);
+
+		// As a user, I can log out.
+		app.delete("/users", empController::logout);
+		
+		// As an employee, I can upload supporting docs for review
+		app.put("/users/:username/requests/:requestId/fileUrl", empController::uploadDocs);
+		
+		// As a manager, I can download supporting docs for review
+		app.get("managers/users/:username/requests/:requestId/fileUrl", mgrController::getDocs);
+
 	}
 }

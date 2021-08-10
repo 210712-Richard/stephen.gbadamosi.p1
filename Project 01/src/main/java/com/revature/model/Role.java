@@ -22,4 +22,23 @@ public enum Role {
 			return "N/A";
 		}
 	}
+	
+	public static Role getValue(String role) {
+		if(role.equalsIgnoreCase("Founder"))
+			return FOUNDER;
+
+		if(role.equalsIgnoreCase("CEO"))
+			return CEO;
+		if(role.equalsIgnoreCase("Head of Department"))
+			return DEPARTMENT_HEAD;
+		if(role.equalsIgnoreCase("Manager"))
+			return MANAGER;
+		if(role.equalsIgnoreCase("Supervisor"))
+			return SUPERVISOR;
+		if(role.equalsIgnoreCase("Coordinator"))
+			return COORDINATOR;
+		
+		return null;
+		
+	}
 }

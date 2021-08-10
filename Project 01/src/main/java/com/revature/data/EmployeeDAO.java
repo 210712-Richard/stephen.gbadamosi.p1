@@ -7,11 +7,11 @@ import com.revature.model.Team;
 
 public interface EmployeeDAO {
 
-	public void addEmployee(Employee emp, Team name);
+	public void add(Employee emp, Team name);
 	
-	public void updateEmployee(Employee emp);
+	public void update(Employee emp);
 	
-	public Employee getEmployee(String username);
+	public Employee get(String username);
 	
 //	public Employee getEmployeeByID(Integer eid);
 	
