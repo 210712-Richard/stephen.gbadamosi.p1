@@ -48,32 +48,35 @@ public class RequestDAOImpl implements RequestDAO {
 	public void add(Request req, Employee emp) {
 		System.out.println("Local requests size is " + requests.size());
 		String query = "";
-		// Check if request exists in DB already then update instead of insert
-		if(requests.size() > 0) {
-			for(Request request : requests) {
-				System.out.println("Existing Request: " + request.toString());
-				System.out.println("Potentially new Request: " + req.toString());
 
-				if(request.equals(req)) {
-					if(request.getStatus() == Status.APPROVED) {
-						System.out.println("Existing request by description already approved");
-						return;
-					}
-					
-					System.out.println("Existing request by description pending approval. Updating request..");
-					
-					query = "Update request Set description = ?, cost = ?, reimburse_amount = ?, docs = ?, passing_grade = ?, "
-							+ "event_date = ?, submission_date = ?, status = ?, priority = ?, comment = ?, commHistory = ? where req_id = ? and requestor = ?;";
-					SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
-					BoundStatement bound = session.prepare(s)
-							.bind(req.getDescription(), req.getCost(), req.getReimburseAmount(), req.getDocs(), req.getPassingGrade(), req.getEventDate(),
-									req.getSubmittedDate(), req.getStatus().toString(), req.getSLA().toString(), req.getComment(), req.getCommHistory().toString(), request.getReqID(), emp.getUsername());
-					session.execute(bound);
-					
-					System.out.println("Request updated successfully");
+		// Check if request exists in DB already
+		for(Request request : requests) {
+			System.out.println("Existing Request: " + request.toString());
+			System.out.println("Potentially new Request: " + req.toString());
+			System.out.println("Are they equal? (" + request.equals(req) + ")");
+			if(request.equals(req)) {
+				if(request.getStatus() == Status.APPROVED) {
+					System.out.println("Existing request by description already approved");
 					return;
 				}
+				
+				System.out.println("Existing request by description pending approval. Use update to modify request");
+				
+//					query = "Update request Set description = ?, cost = ?, reimburse_amount = ?, docs = ?, passing_grade = ?, "
+//							+ "event_date = ?, submission_date = ?, status = ?, priority = ?, comment = ?, commHistory = ? where req_id = ? and requestor = ?;";
+//					SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
+//					BoundStatement bound = session.prepare(s)
+//							.bind(req.getDescription(), req.getCost(), req.getReimburseAmount(), req.getDocs(), req.getPassingGrade(), req.getEventDate(),
+//									req.getSubmittedDate(), req.getStatus().toString(), req.getSLA().toString(), req.getComment(), req.getCommHistory().toString(), request.getReqID(), emp.getUsername());
+//					session.execute(bound);
+//					
+//					System.out.println("Request updated successfully");
+				return;
 			}
+		}
+		
+		if(requests == null) {
+			requests = new ArrayList<>();
 		}
 		
 		query = "Insert into request (req_id, description, type, requestor, cost, reimburse_amount, docs, passing_grade, "
@@ -136,7 +139,7 @@ public class RequestDAOImpl implements RequestDAO {
 		req.setEventDate(row.getLocalDate("event_date"));
 		req.setSubmittedDate(row.getLocalDate("submission_date"));
 		req.setStatus(Status.valueOf(row.getString("status")));
-		req.setSLA(Priority.valueOf(row.getString("priority")));
+		req.setSLA(Priority.getPriority(row.getString("priority")));
 		req.setComment(row.getString("comment"));
 		req.setCommHistory(new StringBuilder(row.getString("commHistory")));
 ////	row = rs.one();
@@ -175,7 +178,7 @@ public class RequestDAOImpl implements RequestDAO {
 			req.setEventDate(row.getLocalDate("event_date"));
 			req.setSubmittedDate(row.getLocalDate("submission_date"));
 			req.setStatus(Status.valueOf(row.getString("status")));
-			req.setSLA(Priority.valueOf(row.getString("priority")));
+			req.setSLA(Priority.getPriority(row.getString("priority")));
 			req.setComment(row.getString("comment"));
 			req.setCommHistory(new StringBuilder(row.getString("commHistory")));
 			
@@ -187,6 +190,7 @@ public class RequestDAOImpl implements RequestDAO {
 
 	@Override
 	public List<Request> getAllRequests() {
+		System.out.println("Getting all requests from DB");
 		String query = "Select req_id, description, type, requestor, cost, reimburse_amount, docs, passing_grade, event_date, submission_date, "
 				+ "status, priority, comment, commHistory from request;";
 		SimpleStatement s = new SimpleStatementBuilder(query).build();
@@ -198,6 +202,8 @@ public class RequestDAOImpl implements RequestDAO {
 			// if there are no return values
 			return null;
 		}
+		
+//		requests = new ArrayList<>();
 		
 		rs.forEach(row -> {	
 			Request req = new Request();
@@ -211,13 +217,13 @@ public class RequestDAOImpl implements RequestDAO {
 			req.setEventDate(row.getLocalDate("event_date"));
 			req.setSubmittedDate(row.getLocalDate("submission_date"));
 			req.setStatus(Status.valueOf(row.getString("status")));
-			req.setSLA(Priority.valueOf(row.getString("priority")));
+			req.setSLA(Priority.getPriority(row.getString("priority")));
 			req.setComment(row.getString("comment"));
 			req.setCommHistory(new StringBuilder(row.getString("commHistory")));
 			
 			requests.add(req);
 		});
-			
+			System.out.println("Found a total of " + requests.size() + " requests in DB");
 			return requests;
 	}
 	

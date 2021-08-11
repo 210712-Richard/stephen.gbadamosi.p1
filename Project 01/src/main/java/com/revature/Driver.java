@@ -10,14 +10,13 @@ import io.javalin.plugin.json.JavalinJackson;
 
 public class Driver {
 	public static void main(String[] args) {
-		//instantiateDatabase();
 	
-		DataBaseInitializer.dropTables();
-		DataBaseInitializer.createTables();
+//		DataBaseInitializer.dropTables();
+//		DataBaseInitializer.createTables();
 		DataBaseInitializer.populateEmployeeTable();
 		DataBaseInitializer.simulateRequests();
-//		javalin();
-//		System.exit(0);
+		javalin();
+
 	}
 
 
@@ -62,10 +61,10 @@ public class Driver {
 		app.delete("/users", empController::logout);
 		
 		// As an employee, I can upload supporting docs for review
-		app.put("/users/:username/requests/:requestId/fileUrl", empController::uploadDocs);
+		app.put("/users/:username/requests/:requestId/docs", empController::uploadDocs);
 		
 		// As a manager, I can download supporting docs for review
-		app.get("managers/users/:username/requests/:requestId/fileUrl", mgrController::getDocs);
+		app.get("managers/users/:username/requests/:requestId/docs", mgrController::getDoc);
 
 	}
 }

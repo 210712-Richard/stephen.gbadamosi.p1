@@ -25,21 +25,30 @@ public class Employee implements Serializable {
 	private Department dept;
 	private Role role;
 	private String manager;
-	private Stack<Employee> approvalChain;
+	private Stack<String> approvalChain;
 	private Queue<Request> pendingReview;
 	private List<Request> history;			// auto	
 	private Double reimburseRecvd;			// auto
 	private Double reimburseBalance;		// auto
 	private LocalDate lastRenewal;
 	
+	
 	public Employee() {
 		super();
-		this.id = ++count;
 		this.lastRenewal = LocalDate.of(LocalDate.now().getYear(), 1, 1);
 		this.reimburseBalance = 1000.0;
 		this.reimburseRecvd = 0.0;
 		this.message = "";
-		this.approvalChain = new Stack<Employee>();
+	}
+	
+	public Employee(String username) {
+//		super();
+		this.username = username;
+		this.lastRenewal = LocalDate.of(LocalDate.now().getYear(), 1, 1);
+		this.reimburseBalance = 1000.0;
+		this.reimburseRecvd = 0.0;
+		this.message = "";
+		this.approvalChain = new Stack<String>();
 		this.pendingReview = new LinkedList<Request>();
 	}
 	
@@ -53,7 +62,7 @@ public class Employee implements Serializable {
 		this.history = new ArrayList<>();
 		this.lastRenewal =  LocalDate.of(LocalDate.now().getYear(), 1, 1);;
 		this.reimburseBalance = 1000.0;
-		this.approvalChain = new Stack<Employee>();
+		this.approvalChain = new Stack<String>();
 		this.pendingReview = new LinkedList<Request>();
 	}
 
@@ -129,11 +138,11 @@ public class Employee implements Serializable {
 		this.manager = manager;
 	}
 
-	public Stack<Employee> getApprovalChain() {
+	public Stack<String> getApprovalChain() {
 		return approvalChain;
 	}
 
-	public void setApprovalChain(Stack<Employee> approvalChain) {
+	public void setApprovalChain(Stack<String> approvalChain) {
 		this.approvalChain = approvalChain;
 	}
 

@@ -7,10 +7,10 @@ import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.revature.model.Employee;
-import com.revature.model.Request;
+import com.revature.model.*;
 import com.revature.services.EmployeeService;
 import com.revature.services.RequestService;
+import com.revature.util.S3Util;
 
 import io.javalin.http.Context;
 
@@ -99,7 +99,9 @@ public class EmployeeControllerImpl implements EmployeeController {
 		}
 		
 		UUID reqID = UUID.fromString(ctx.pathParam("requestId"));
+		log.debug(reqID);
 		Request request = reqService.searchRequest(reqID);
+		log.debug(request);
 		
 		if(request == null)
 		{
@@ -108,14 +110,17 @@ public class EmployeeControllerImpl implements EmployeeController {
 			return;
 		}
 		
-		String filetype = ctx.header("extension");
-		if(filetype == null) {
+		String extension = ctx.header("extension");
+
+		if(extension == null) {
 			ctx.status(400);
 			ctx.html("Expected filetype in header");
 			return;
 		}
-		
-		String key = ctx.pathParam("requestId") + "." + filetype;
+		String filetype = FileType.toString(FileType.getDocType(extension));
+		log.debug(filetype);
+		String key = username + "/" + filetype + "/" + ctx.pathParam("requestId") + extension;
+		S3Util.getInstance().uploadToBucket(key, ctx.bodyAsBytes());
 		request.getDocs().add(key);
 		reqService.updateRequest(request, emp);				
 	}

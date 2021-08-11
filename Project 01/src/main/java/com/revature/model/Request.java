@@ -1,12 +1,14 @@
 package com.revature.model;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class Request {
-	
+public class Request implements Serializable {
+	private static final long serialVersionUID = 7426075925303078712L;
+
 	private UUID reqId;
 	private String description;
 	private Coverage type;
@@ -224,8 +226,8 @@ public class Request {
 		if (getClass() != obj.getClass())
 			return false;
 		Request other = (Request) obj;
-		if (SLA != other.SLA)
-			return false;
+//		if (SLA != other.SLA)
+//			return false;
 //		if (comm_history == null) {
 //			if (other.comm_history != null)
 //				return false;
@@ -278,11 +280,11 @@ public class Request {
 			return false;
 //		if (status != other.status)
 //			return false;
-		if (submittedDate == null) {
-			if (other.submittedDate != null)
-				return false;
-		} else if (!submittedDate.equals(other.submittedDate))
-			return false;
+//		if (submittedDate == null) {
+//			if (other.submittedDate != null)
+//				return false;
+//		} else if (!submittedDate.equals(other.submittedDate))
+//			return false;
 		if (type != other.type)
 			return false;
 		return true;

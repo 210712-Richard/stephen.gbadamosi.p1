@@ -19,17 +19,20 @@ public class RequestService {
 	public Request searchRequest(UUID req_id) {
 		// requests list should be populated from database
 		
-		Request req = null;
+		// debug
+		System.out.println("Searching for request ID: " + req_id);
+		System.out.println("Local requests size: " + RequestDAOImpl.requests.size());
+
 		if(RequestDAOImpl.requests != null && RequestDAOImpl.requests.size() > 0) {
 			for(Request target : RequestDAOImpl.requests) {
 				if(target.getReqID().equals(req_id)) {
 					System.out.println("Found request in DB matching ID: " + req_id);
-					return req;
+					return target;
 				}
 			}
 		}
 		
-		return req;
+		return null;
 	}
 	
 	public void updateRequest(Request req, Employee emp) {

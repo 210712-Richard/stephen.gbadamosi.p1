@@ -8,5 +8,5 @@ public interface ManagerController {
 	
 	void updateRequest(Context ctx);
 	
-	void getDocs(Context ctx);
+	void getDoc(Context ctx);
 }

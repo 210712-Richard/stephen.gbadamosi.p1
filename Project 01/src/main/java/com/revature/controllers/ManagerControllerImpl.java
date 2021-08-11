@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.revature.model.Employee;
+import com.revature.model.FileType;
 import com.revature.model.Request;
 import com.revature.model.Role;
 import com.revature.services.EmployeeService;
@@ -31,7 +32,7 @@ public class ManagerControllerImpl implements ManagerController {
 	}
 
 	@Override
-	public void getDocs(Context ctx) {
+	public void getDoc(Context ctx) {
 		String username = ctx.pathParam("username");
 		Employee loggedUser = ctx.sessionAttribute("loggedUser");
 		Employee emp = EmployeeService.empDao.searchEmployees(username);
@@ -48,12 +49,30 @@ public class ManagerControllerImpl implements ManagerController {
 		
 		UUID reqID = UUID.fromString(ctx.pathParam("requestId"));
 		Request request = reqService.searchRequest(reqID);
+		String extension = ctx.header("extension");
 
+		if(extension == null) {
+			ctx.status(400);
+			ctx.html("Expected filetype in header");
+			return;
+		}
+		
+		String filetype = FileType.toString(FileType.getDocType(extension));
+		String docURL = "";
+		for(String docsURL : request.getDocs()) {
+			if(docsURL.contains(filetype))
+				docURL = docsURL;
+		}
+		
+		if(docURL.equals("")) {
+			ctx.status(404);
+			ctx.html("File not found for Request ID: " + reqID);
+			return;
+		}
+		
 		try {
-			for(String doc : request.getDocs()) {
-				InputStream doc_key = S3Util.getInstance().getObject(doc);
-				ctx.result(doc_key);
-			}
+			InputStream doc = S3Util.getInstance().getObject(docURL);
+			ctx.result(doc);
 		} catch (Exception e) {
 			ctx.status(500);
 			ctx.html("Unable to download document");

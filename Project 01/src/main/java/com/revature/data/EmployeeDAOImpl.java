@@ -86,7 +86,7 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		
 		employees.put(emp.getId(), emp); 	// review: may not be necessary
 		System.out.println("Adding employee to Team: " + name);
-		emp.getDept().getMembers().add(emp);	// review may not be necessary
+		emp.getDept().getMembers().add(emp.getUsername());	// review may not be necessary
 		
 		System.out.println(emp.getName() + " has been successfully added to company database");
 	}
@@ -125,7 +125,7 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		}
 		Row row = rs.one();
 		
-		Employee emp = new Employee();
+		Employee emp = new Employee(username);
 		emp.setUsername(row.getString("username"));
 		emp.setEmail(row.getString("email"));
 		emp.setMessage(row.getString("message"));
@@ -199,9 +199,9 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		
 		
 		rs.forEach(row -> {	
-			Employee emp = new Employee();
+			String username = row.getString("username");
+			Employee emp = new Employee(username);
 			emp.setId(row.getInt("id"));
-			emp.setUsername(row.getString("username"));
 			emp.setName(row.getString("name"));
 			emp.setEmail(row.getString("email"));
 			emp.setMessage(row.getString("message"));
@@ -253,19 +253,19 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		emp.setDept(searchDept(name));
 		// add employee as department head if it's their title
 		if(name == Team.ALL && emp.getRole() == Role.FOUNDER) {
-			emp.getDept().setDeptHead(emp);
-			emp.getDept().getMembers().add(emp);
+			emp.getDept().setDeptHead(emp.getUsername());
+			emp.getDept().getMembers().add(emp.getUsername());
 			System.out.println("New member (" + emp.getName() + ") for Department " + name.toString() + " added as " + emp.getRole().toString());
 			return;
 		}
 		
 		if(emp.getRole() == Role.DEPARTMENT_HEAD) {
-			emp.getDept().setDeptHead(emp);
-			emp.getDept().getMembers().add(emp);
+			emp.getDept().setDeptHead(emp.getUsername());
+			emp.getDept().getMembers().add(emp.getUsername());
 			System.out.println("New member (" + emp.getName() + ") for Department " + name.toString() + " added as " + emp.getRole().toString());
 		}
 		else {
-			emp.getDept().getMembers().add(emp);
+			emp.getDept().getMembers().add(emp.getUsername());
 			System.out.println("New member (" + emp.getName() + ") for Department " + name.toString() + " added as " + emp.getRole().toString());
 		}
 	}
@@ -274,18 +274,18 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		// Set approval chain based on employee type
 		Employee next_approver = null;
 		Department benefits = searchDept(Team.BENEFITS);
-		for(Employee e : benefits.getMembers()) {
-			if(!e.getUsername().equalsIgnoreCase(emp.getUsername())) {
-				next_approver = e;
+		for(String username : benefits.getMembers()) {
+			if(!username.equalsIgnoreCase(emp.getUsername())) {
+				next_approver = searchEmployees(username);
 				if(next_approver.getRole() == Role.COORDINATOR) {
-					next_approver = e; 
+					next_approver = searchEmployees(username); 
 					break;
 				}
 			}
 		}
 
 		// If FOUNDER - requires approval from benCo only
-		emp.getApprovalChain().add(next_approver);
+		emp.getApprovalChain().add(next_approver.getUsername());
 		
 		if(emp.getRole() == Role.FOUNDER) {
 			System.out.println("Approval chain configured for " + emp.getUsername() + " as follows: ");
@@ -297,17 +297,18 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		// If Manager - requires approval from Dept head & BenCo
 		if(emp.getRole() != Role.COORDINATOR) {
 			next_approver = searchEmployees(emp.getManager());
-			emp.getApprovalChain().add(next_approver);
+			emp.getApprovalChain().add(next_approver.getUsername());
 			System.out.println("Approval chain configured for " + emp.getUsername() + " as follows: ");
 			showApprovalChain(emp);
 			return;
 		}		
 		
 		// If Coordinator - requires approval from Manager / Supervisor, Department head and BenCo
-		next_approver = searchDept(emp.getDept().getName()).getDeptHead();
-		emp.getApprovalChain().add(next_approver);
+		Employee mgr = searchEmployees(emp.getDept().getDeptHead());
+		next_approver = mgr;
+		emp.getApprovalChain().add(next_approver.getUsername());
 		next_approver = searchEmployees(emp.getManager());
-		emp.getApprovalChain().add(next_approver);
+		emp.getApprovalChain().add(next_approver.getUsername());
 		System.out.println("Approval chain configured for " + emp.getUsername() + " as follows: ");
 		showApprovalChain(emp);
 		return;
@@ -371,8 +372,8 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		}
 		
 		System.out.println("Number of appprovals in chain: " + emp.getApprovalChain().size());
-		for(Employee e : emp.getApprovalChain()) 
-			System.out.println("Approval required from " + e.getName());
+		for(String s : emp.getApprovalChain()) 
+			System.out.println("Approval required from " + s);
 		
 		
 	}

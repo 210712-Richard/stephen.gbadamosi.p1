@@ -6,20 +6,20 @@ import java.util.List;
 
 public class Department {
 	private Team name;
-	private Employee deptHead;
-	private List<Employee> members;
+	private String deptHead;
+	private List<String> members;
 	
 	public Department() {
 		name = Team.NONE;
-		members = new ArrayList<Employee>();
+		members = new ArrayList<String>();
 	}
 	
 	public Department(Team name) {
 		this.name = name;
-		members = new ArrayList<Employee>();
+		members = new ArrayList<String>();
 	}
 	
-	public Department(Team name, Employee boss) {
+	public Department(Team name, String boss) {
 		this.name = name;
 		members.add(boss);
 	}
@@ -30,22 +30,22 @@ public class Department {
 	public void setName(Team name) {
 		this.name = name;
 	}
-	public Employee getDeptHead() {
+	public String getDeptHead() {
 		return deptHead;
 	}
 
-	public void setDeptHead(Employee deptHead) {
+	public void setDeptHead(String deptHead) {
 		this.deptHead = deptHead;
 	}
 
-	public List<Employee> getMembers() {
+	public List<String> getMembers() {
 		if(members == null) {
-			members = new ArrayList<Employee>();
+			members = new ArrayList<String>();
 		}
 		
 		return members;
 	}
-	public void setMembers(List<Employee> members) {
+	public void setMembers(List<String> members) {
 		this.members = members;
 	}
 
