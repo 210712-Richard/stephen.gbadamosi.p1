@@ -1,5 +1,6 @@
 package com.revature.data;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -16,104 +17,114 @@ import com.revature.model.Employee;
 import com.revature.model.Priority;
 import com.revature.model.Request;
 import com.revature.model.Status;
-import com.revature.services.EmployeeService;
 import com.revature.util.CassandraUtil;
 
 public class RequestDAOImpl implements RequestDAO {
 	private CqlSession session = CassandraUtil.getInstance().getSession();
-	private EmployeeDAOImpl edao = new EmployeeDAOImpl();
+	
 	public static List<Request> requests;
 	public static List<Request> pending;
-
-	static {
-		if(requests == null)
-			requests = new ArrayList<>();
-
-		
-		if(pending == null)
-			pending = new ArrayList<>();
-			// populate from requests
-
-	}
-	
-	{
-		// populate requests from database 
-		getAllRequests();
-		
-		// sort requests by status
-		sortRequests();
-	}
 	
 	@Override
 	public void add(Request req, Employee emp) {
+		EmployeeDAOImpl edao = new EmployeeDAOImpl();
+		if(requests == null) 
+			requests = new ArrayList<>();
+		if(pending == null)
+			pending = new ArrayList<>();
+		
 		System.out.println("Local requests size is " + requests.size());
+		System.out.println("Pending requests size is " + pending.size());
 		String query = "";
 
+		// if event date has passed, reject add request
+		if(req.getEventDate().isBefore(LocalDate.now().minusDays(1))) {
+			System.out.println("Too late to submit a reimbursement for event date without manager approval");
+			System.out.println("Unable to add request");
+			return;
+		}
+		
 		// Check if request exists in DB already
 		for(Request request : requests) {
-			System.out.println("Existing Request: " + request.toString());
-			System.out.println("Potentially new Request: " + req.toString());
-			System.out.println("Are they equal? (" + request.equals(req) + ")");
 			if(request.equals(req)) {
 				if(request.getStatus() == Status.APPROVED) {
 					System.out.println("Existing request by description already approved");
 					return;
 				}
 				
-				System.out.println("Existing request by description pending approval. Use update to modify request");
-				
-//					query = "Update request Set description = ?, cost = ?, reimburse_amount = ?, docs = ?, passing_grade = ?, "
-//							+ "event_date = ?, submission_date = ?, status = ?, priority = ?, comment = ?, commHistory = ? where req_id = ? and requestor = ?;";
-//					SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
-//					BoundStatement bound = session.prepare(s)
-//							.bind(req.getDescription(), req.getCost(), req.getReimburseAmount(), req.getDocs(), req.getPassingGrade(), req.getEventDate(),
-//									req.getSubmittedDate(), req.getStatus().toString(), req.getSLA().toString(), req.getComment(), req.getCommHistory().toString(), request.getReqID(), emp.getUsername());
-//					session.execute(bound);
-//					
-//					System.out.println("Request updated successfully");
+				System.out.println("Existing request with ID: " + req.getReqID() + " pending approval. Use update to modify request");
+				System.out.println("Next approver: " + request.getNextApprover());
+				sortRequests();
 				return;
 			}
 		}
+
+		System.out.println("Adding new request for " + emp.getUsername());
 		
-		if(requests == null) {
-			requests = new ArrayList<>();
-		}
+		if(emp.getApprovalChain().empty())
+			edao.configureApprovalChain(emp);
 		
-		query = "Insert into request (req_id, description, type, requestor, cost, reimburse_amount, docs, passing_grade, "
-				+ "event_date, submission_date, status, priority, comment, commHistory) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+		System.out.println("Next approver for request is: " + emp.getApprovalChain().peek());
+		Employee approver = edao.search(emp.getApprovalChain().peek());
+		System.out.println("Next approver: " + approver.getUsername());
+		req.setNextApprover(approver.getUsername());
+		emp.getHistory().add(req);
+		approver.getPendingReview().add(req);
+		calculateReimbursementAmount(req, emp);
+		List<UUID> req_list = transformRequest(emp.getHistory());
+		edao.update(emp);
+		edao.update(approver);
+		
+		System.out.println("Request list transformed to UUID list in add: " + req_list.toString());
+		
+		query = "Insert into request (req_id, description, type, requestor, next_approver, cost, reimburse_amount, docs, requestees, passing_grade, "
+				+ "event_date, submission_date, status, priority, comment, commHistory) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
 		BoundStatement bound = session.prepare(s)
-				.bind(req.getReqID(), req.getDescription(), req.getType().toString(), emp.getUsername(), req.getCost(), req.getReimburseAmount(), req.getDocs(),
+				.bind(req.getReqID(), req.getDescription(), req.getType().toString(), emp.getUsername(), req.getNextApprover(), req.getCost(), req.getReimburseAmount(), req.getDocs(), req.getRequestees(),
 						 req.getPassingGrade(), req.getEventDate(), req.getSubmittedDate(), req.getStatus().toString(), req.getSLA().toString(), req.getComment(), req.getCommHistory().toString());
 		session.execute(bound);
-		
-		System.out.println("Adding new request for " + emp.getUsername());
-		requests.add(req); 	// review: may not be necessary
-		pending.add(req); 	// New request so automatically added to pending and manager's queue
-		emp.getHistory().add(req);
-		
+				
 		System.out.println("Request with ID: " + req.getReqID() + " has been successfully added to reimbursement requests database");
 		System.out.println(emp.getName() + " request history updated: " + emp.toString());
+		sortRequests();
 	}
 
 	@Override
 	public void update(Request req, Employee emp) {
 
-		String query = "Update request Set description = ?, cost = ?, reimburse_amount = ?, docs = ?, passing_grade = ?, "
+		String query = "Update request Set description = ?, next_approver = ?, cost = ?, reimburse_amount = ?, docs = ?, requestees = ?, passing_grade = ?, "
 				+ "event_date = ?, submission_date = ?, status = ?, priority = ?, comment = ?, commHistory = ? where req_id = ? and requestor = ?;";
 		SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
 		BoundStatement bound = session.prepare(s)
-				.bind(req.getDescription(), req.getCost(), req.getReimburseAmount(), req.getDocs(), req.getPassingGrade(), req.getEventDate(),
+				.bind(req.getDescription(), req.getNextApprover(), req.getCost(), req.getReimburseAmount(), req.getDocs(), req.getRequestees(), req.getPassingGrade(), req.getEventDate(),
 						req.getSubmittedDate(), req.getStatus().toString(), req.getSLA().toString(), req.getComment(), req.getCommHistory().toString(), req.getReqID(), emp.getUsername());
 		session.execute(bound);
 		
 		System.out.println("Request updated successfully");
+		requests = getAllRequests();
+		sortRequests();
 
 	}
 
 	@Override
 	public Request get(UUID req_id) {
-		String query = "Select description, type, requestor, cost, reimburse_amount, docs, passing_grade, event_date, submission_date, "
+		// requests list should be populated from database
+		
+		// debug
+		System.out.println("Searching for request ID: " + req_id);
+		System.out.println("Local requests size: " + RequestDAOImpl.requests.size());
+
+		if(RequestDAOImpl.requests != null && RequestDAOImpl.requests.size() > 0) {
+			for(Request target : RequestDAOImpl.requests) {
+				if(target.getReqID().equals(req_id)) {
+					System.out.println("Found request in DB matching ID: " + req_id);
+					return target;
+				}
+			}
+		}
+		
+		String query = "Select description, type, requestor, next_approver, cost, reimburse_amount, docs, requestees, passing_grade, event_date, submission_date, "
 				+ "status, priority, comment, commHistory from request where req_id = ?;";
 		SimpleStatement s = new SimpleStatementBuilder(query).build();
 		BoundStatement bound = session.prepare(s).bind(req_id);
@@ -129,12 +140,14 @@ public class RequestDAOImpl implements RequestDAO {
 		
 
 		Request req = new Request();
-		req.setReqID(row.getUuid("req_id"));
+		req.setReqID(req_id);
 		req.setDescription(row.getString("description"));
-		req.setType(Coverage.valueOf(row.getString("type")));
-		req.setRequestor(edao.searchEmployees((row.getString("requestor"))));
+		req.setType(Coverage.getCoverage(row.getString("type")));
+		req.setRequestor(row.getString("requestor"));
+		req.setNextApprover(row.getString("next_approver"));
 		req.setCost(row.getDouble("cost"));
 		req.setDocs(row.getList("docs", String.class));
+		req.setRequestees(row.getList("requestees", String.class));
 		req.setReimburseAmount(row.getDouble("reimburse_amount"));
 		req.setEventDate(row.getLocalDate("event_date"));
 		req.setSubmittedDate(row.getLocalDate("submission_date"));
@@ -142,18 +155,15 @@ public class RequestDAOImpl implements RequestDAO {
 		req.setSLA(Priority.getPriority(row.getString("priority")));
 		req.setComment(row.getString("comment"));
 		req.setCommHistory(new StringBuilder(row.getString("commHistory")));
-////	row = rs.one();
-////	if(row != null)
-////		throw new RuntimeException("More than one employee with same username");
-////
 		
 		return req;
 	}
 
 	@Override
 	public List<Request> getAllUserRequest(String username) {
-		Employee emp = edao.searchEmployees(username);
-		String query = "Select req_id, description, type, requestor, cost, reimburse_amount, docs, passing_grade, event_date, submission_date, "
+		EmployeeDAOImpl edao = new EmployeeDAOImpl();
+		Employee emp = edao.search(username);
+		String query = "Select req_id, description, type, requestor, next_approver, cost, reimburse_amount, docs, passing_grade, event_date, submission_date, "
 				+ "status, priority, comment, commHistory from request where username = ?;";
 		SimpleStatement s = new SimpleStatementBuilder(query).build();
 		BoundStatement bound = session.prepare(s).bind(username);
@@ -170,10 +180,12 @@ public class RequestDAOImpl implements RequestDAO {
 			Request req = new Request();
 			req.setReqID(row.getUuid("req_id"));
 			req.setDescription(row.getString("description"));
-			req.setType(Coverage.valueOf(row.getString("type")));
-			req.setRequestor(edao.searchEmployees((row.getString("requestor"))));
+			req.setType(Coverage.getCoverage(row.getString("type")));
+			req.setRequestor(row.getString("requestor"));
+			req.setNextApprover(row.getString("next_approver"));
 			req.setCost(row.getDouble("cost"));
 			req.setDocs(row.getList("docs", String.class));
+			req.setRequestees(row.getList("requestees", String.class));
 			req.setReimburseAmount(row.getDouble("reimburse_amount"));
 			req.setEventDate(row.getLocalDate("event_date"));
 			req.setSubmittedDate(row.getLocalDate("submission_date"));
@@ -184,14 +196,14 @@ public class RequestDAOImpl implements RequestDAO {
 			
 			emp.getHistory().add(req);
 		});
-			
+		
 			return emp.getHistory();
 	}
 
 	@Override
 	public List<Request> getAllRequests() {
 		System.out.println("Getting all requests from DB");
-		String query = "Select req_id, description, type, requestor, cost, reimburse_amount, docs, passing_grade, event_date, submission_date, "
+		String query = "Select req_id, description, type, requestor, next_approver, cost, reimburse_amount, docs, passing_grade, event_date, submission_date, "
 				+ "status, priority, comment, commHistory from request;";
 		SimpleStatement s = new SimpleStatementBuilder(query).build();
 
@@ -203,16 +215,18 @@ public class RequestDAOImpl implements RequestDAO {
 			return null;
 		}
 		
-//		requests = new ArrayList<>();
+		requests = new ArrayList<>();
 		
 		rs.forEach(row -> {	
 			Request req = new Request();
 			req.setReqID(row.getUuid("req_id"));
 			req.setDescription(row.getString("description"));
-			req.setType(Coverage.valueOf(row.getString("type")));
-			req.setRequestor(edao.searchEmployees((row.getString("requestor"))));
+			req.setType(Coverage.getCoverage(row.getString("type")));
+			req.setRequestor(row.getString("requestor"));
+			req.setNextApprover(row.getString("next_approver"));
 			req.setCost(row.getDouble("cost"));
 			req.setDocs(row.getList("docs", String.class));
+	//		req.setRequestees(row.getList("requestees", String.class));
 			req.setReimburseAmount(row.getDouble("reimburse_amount"));
 			req.setEventDate(row.getLocalDate("event_date"));
 			req.setSubmittedDate(row.getLocalDate("submission_date"));
@@ -223,17 +237,21 @@ public class RequestDAOImpl implements RequestDAO {
 			
 			requests.add(req);
 		});
+		
+			sortRequests();
 			System.out.println("Found a total of " + requests.size() + " requests in DB");
 			return requests;
 	}
 	
-	public void sortRequests() {
+	public static void sortRequests() {
 		// Adds non approved requests to pending list
-		if(requests.size() > 0) {
-			for(Request r : requests) {
-				if(r.getStatus() != Status.APPROVED)
-					pending.add(r);
-			}
+		if(pending == null)
+			pending = new ArrayList<>();
+				
+		for(Request r : requests) {
+			if(r.getStatus() != Status.APPROVED && r.getStatus() != Status.DENIED
+					&& !pending.contains(r))
+				pending.add(r);
 		}
 		
 	}
@@ -281,10 +299,35 @@ public class RequestDAOImpl implements RequestDAO {
 		
 		return req_list;
 	}
-
 	
-	public static void checkStatus(Request req) {
-		// Check status of request and route to managers or benCo for approval if necessary
+	// Modifies reimbursement balance and amount if reimbursement balance is greater than 0
+	public static void calculateReimbursementAmount(Request req, Employee emp) {
+		
+		if(emp.getReimburseBalance() <= 0.0)
+			System.out.println(emp.getLastRenewal().getDayOfYear() + " Reimbursement allowance for " + emp.getUsername() + " exhausted."
+					+ "\nBalance will refresh next year");
+		
+		Double amount = req.getType().getValue() * req.getCost();
+		System.out.println("Reimbursement amount for this request is: " + amount);
+		
+		Double balance = emp.getReimburseBalance();
+		Double total = amount;
+		
+		// Include sum of pending reimbursements in total
+		for(Request r : emp.getHistory()) {
+			if(r.getStatus() != Status.APPROVED || r.getStatus() != Status.APPEAL && r.getReqID() != req.getReqID()) {
+				total = total + r.getReimburseAmount();
+			}
+		}
+		
+		System.out.println("Reimbursement Total for " + emp.getUsername() + " is: " + total);
+		System.out.println("Meanwhile reimbursement balance is: " + balance);
+		
+		if(total > balance) {
+			System.out.println("WARNING: The reimbursement amount of all requests for this employee exceeds reimbursement balance");
+		}
+		
+		req.setReimburseAmount(amount);
 		
 	}
 	

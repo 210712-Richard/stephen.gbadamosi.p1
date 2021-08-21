@@ -3,7 +3,6 @@ package com.revature.model;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -139,6 +138,9 @@ public class Employee implements Serializable {
 	}
 
 	public Stack<String> getApprovalChain() {
+		if(approvalChain == null) 
+			approvalChain = new Stack<>();
+		
 		return approvalChain;
 	}
 
@@ -256,11 +258,6 @@ public class Employee implements Serializable {
 			if (other.history != null)
 				return false;
 		} else if (!history.equals(other.history))
-			return false;
-		if (id == null) {
-			if (other.id != null)
-				return false;
-		} else if (!id.equals(other.id))
 			return false;
 		if (lastRenewal == null) {
 			if (other.lastRenewal != null)

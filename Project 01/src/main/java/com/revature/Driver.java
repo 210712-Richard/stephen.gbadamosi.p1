@@ -10,11 +10,12 @@ import io.javalin.plugin.json.JavalinJackson;
 
 public class Driver {
 	public static void main(String[] args) {
-	
-//		DataBaseInitializer.dropTables();
-//		DataBaseInitializer.createTables();
-		DataBaseInitializer.populateEmployeeTable();
-		DataBaseInitializer.simulateRequests();
+		DataBaseInitializer DBInit = new DataBaseInitializer();
+//		DBInit.dropTables();
+//		DBInit.createTables();
+		DBInit.populateEmployeeTable();
+		DBInit.simulateRequests();
+		DBInit.initiateThreads();
 		javalin();
 
 	}
@@ -22,8 +23,8 @@ public class Driver {
 
 	public static void javalin() {
 		EmployeeControllerImpl empController = new EmployeeControllerImpl();
-		RequestControllerImpl reqController = new RequestControllerImpl();
 		ManagerControllerImpl mgrController = new ManagerControllerImpl();
+		BenCoControllerImpl benController = new BenCoControllerImpl();
 
 		// Set up Jackson to serialize LocalDates and LocalDateTimes
 		ObjectMapper jackson = new ObjectMapper();
@@ -54,17 +55,54 @@ public class Driver {
 		// As an employee, I can submit new reimbursement requests
 //		app.post("/users/:username", uc::register);
 
+		// As an employee, I can view an existing request
+		app.get("/users/:username/requests/:requestId", empController::viewRequest);
+
 		// As an employee, I can view my request history
 		app.get("/users/:username/requests", empController::getRequestHistory);
 
-		// As a user, I can log out.
+		// As an employee, I can log out.
 		app.delete("/users", empController::logout);
 		
 		// As an employee, I can upload supporting docs for review
 		app.put("/users/:username/requests/:requestId/docs", empController::uploadDocs);
+
+		// As an employee, I can confirm reimbursement request if BenCo adjusts the reimbursement amount
+		app.put("/users/:username/requests/:requestId", empController::confirmRequest);
+		
+		// As an employee, I can cancel reimbursement request if BenCo adjusts the reimbursement amount
+		app.delete("/users/:username/requests/:requestId", empController::cancelRequest);
 		
 		// As a manager, I can download supporting docs for review
 		app.get("managers/users/:username/requests/:requestId/docs", mgrController::getDoc);
+
+		// As a manager, I can request additional information from the employee before approval (specifying filetype and requestee in header)
+		app.patch("managers/users/:username/requests/:requestId", mgrController::requestDoc);
+
+		// As a manager, I can approve a reimbursement request
+		app.put("managers/users/:username/requests/:requestId", mgrController::approveRequest);
+
+		// As a manager, I can reject a reimbursement request
+		app.delete("managers/users/:username/requests/:requestId", mgrController::denyRequest);
+		
+		// As a BenCo, I can request additional information from anyone up the approval chain (specifying filetype and requestee in header)
+		app.patch("benco/users/:username/requests/:requestId/docs", benController::requestDoc);
+
+		// As a BenCo, I can download requested docs for review
+		app.get("benco/users/:username/requests/:requestId/docs", benController::getDoc);
+
+		// As a BenCo, I can modify reimbursement amount prior to approval
+		app.patch("benco/users/:username/requests/:requestId/:amount", benController::modifyRequest);
+
+		// As a BenCo, I can approve a reimbursement request after review
+		app.put("benco/users/:username/requests/:requestId", benController::approveRequest);
+
+		// As a BenCo, I can reject a reimbursement request provided there's a reason
+		app.delete("benco/users/:username/requests/:requestId", benController::denyRequest);
+
+		// As a BenCo, I can confirm a reimbursement after it event date and prerequisites are met
+		app.post("benco/users/:username/requests/:requestId", benController::confirmRequest);
+
 
 	}
 }

@@ -11,9 +11,9 @@ public interface EmployeeDAO {
 	
 	public void update(Employee emp);
 	
+	public Employee search(String username);
+	
 	public Employee get(String username);
-	
-//	public Employee getEmployeeByID(Integer eid);
-	
+		
 	public List<Employee> getEmployees();
 }

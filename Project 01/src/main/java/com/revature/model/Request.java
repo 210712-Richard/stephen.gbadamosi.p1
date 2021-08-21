@@ -13,8 +13,10 @@ public class Request implements Serializable {
 	private String description;
 	private Coverage type;
 	private String requestor;
+	private String nextApprover;
 	private Double cost;
 	private List<String> docs;
+	private List<String> requestees;
 	private Double reimburseAmount;
 	private String passingGrade;
 	private LocalDate eventDate;
@@ -36,6 +38,7 @@ public class Request implements Serializable {
 		this.comment = "";
 		this.comm_history = new StringBuilder();
 		this.docs = new ArrayList<>();
+		this.reimburseAmount = 0.0;
 	}
 	
 	public Request(String desc, Coverage type, String requestor, Double cost, LocalDate eventDate) {
@@ -50,13 +53,16 @@ public class Request implements Serializable {
 		this.docs = new ArrayList<>();
 		this.status = Status.NEW;
 		this.status.numApprovals = 3;
-		this.SLA = Priority.MEDIUM;
-		if(eventDate.isAfter(LocalDate.now().plusDays(3)))
-			this.SLA = Priority.URGENT;
-		if(eventDate.isAfter(LocalDate.now().plusWeeks(1)))
+		this.SLA = Priority.LOW;
+		if(eventDate.isBefore(LocalDate.now().plusWeeks(2)))
+			this.SLA = Priority.MEDIUM;
+		if(eventDate.isBefore(LocalDate.now().plusWeeks(1)))
 			this.SLA = Priority.HIGH;
+		if(eventDate.isBefore(LocalDate.now().plusDays(3)))
+			this.SLA = Priority.URGENT;
 		this.comment = "";
 		this.comm_history = new StringBuilder();
+		this.reimburseAmount = 0.0;
 	}
 
 
@@ -95,8 +101,16 @@ public class Request implements Serializable {
 	}
 
 
-	public void setRequestor(Employee requestor) {
-		this.requestor = requestor.getUsername();
+	public void setRequestor(String requestor) {
+		this.requestor = requestor;
+	}
+
+	public String getNextApprover() {
+		return nextApprover;
+	}
+
+	public void setNextApprover(String next_approver) {
+		this.nextApprover = next_approver;
 	}
 
 	public Double getCost() {
@@ -117,6 +131,18 @@ public class Request implements Serializable {
 		this.docs = docs;
 	}
 
+
+	public List<String> getRequestees() {
+		if(this.requestees == null)
+			this.requestees = new ArrayList<>();
+		return requestees;
+	}
+
+	public void setRequestees(List<String> requestees) {
+		this.requestees = requestees;
+	}
+
+	
 	public Double getReimburseAmount() {
 		return reimburseAmount;
 	}
@@ -226,18 +252,6 @@ public class Request implements Serializable {
 		if (getClass() != obj.getClass())
 			return false;
 		Request other = (Request) obj;
-//		if (SLA != other.SLA)
-//			return false;
-//		if (comm_history == null) {
-//			if (other.comm_history != null)
-//				return false;
-//		} else if (!comm_history.equals(other.comm_history))
-//			return false;
-//		if (comment == null) {
-//			if (other.comment != null)
-//				return false;
-//		} else if (!comment.equals(other.comment))
-//			return false;
 		if (cost == null) {
 			if (other.cost != null)
 				return false;
@@ -248,43 +262,16 @@ public class Request implements Serializable {
 				return false;
 		} else if (!description.equals(other.description))
 			return false;
-//		if (docsURL == null) {
-//			if (other.docsURL != null)
-//				return false;
-//		} else if (!docsURL.equals(other.docsURL))
-//			return false;
 		if (eventDate == null) {
 			if (other.eventDate != null)
 				return false;
 		} else if (!eventDate.equals(other.eventDate))
 			return false;
-//		if (passingGrade == null) {
-//			if (other.passingGrade != null)
-//				return false;
-//		} else if (!passingGrade.equals(other.passingGrade))
-//			return false;
-//		if (reimburseAmount == null) {
-//			if (other.reimburseAmount != null)
-//				return false;
-//		} else if (!reimburseAmount.equals(other.reimburseAmount))
-//			return false;
-//		if (reqId == null) {
-//			if (other.reqId != null)
-//				return false;
-//		} else if (!reqId.equals(other.reqId))
-//			return false;
 		if (requestor == null) {
 			if (other.requestor != null)
 				return false;
 		} else if (!requestor.equals(other.requestor))
 			return false;
-//		if (status != other.status)
-//			return false;
-//		if (submittedDate == null) {
-//			if (other.submittedDate != null)
-//				return false;
-//		} else if (!submittedDate.equals(other.submittedDate))
-//			return false;
 		if (type != other.type)
 			return false;
 		return true;

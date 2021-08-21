@@ -2,8 +2,10 @@ package com.revature.data;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Stack;
 import java.util.UUID;
 
 import com.datastax.oss.driver.api.core.CqlSession;
@@ -18,12 +20,11 @@ import com.revature.model.Employee;
 import com.revature.model.Request;
 import com.revature.model.Role;
 import com.revature.model.Team;
-import com.revature.services.EmployeeService;
 import com.revature.util.CassandraUtil;
 
 public class EmployeeDAOImpl implements EmployeeDAO {
-	private CqlSession session = CassandraUtil.getInstance().getSession();
-	private static RequestDAOImpl rd = new RequestDAOImpl();
+	private CqlSession session;
+	public RequestDAOImpl reqDao;
 	public static HashMap<Integer, Employee> employees;
 	public static List<Department> departments;
 
@@ -44,49 +45,45 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		}
 	}
 	
-	{
-		// populate local employees database
-		getEmployees();
+	public EmployeeDAOImpl() {
+		session = CassandraUtil.getInstance().getSession();
+		reqDao =  new RequestDAOImpl();
+	
 	}
 	
+	public EmployeeDAOImpl(CqlSession session, RequestDAOImpl reqDao, HashMap<Integer, Employee> emps, List<Department> depts) {
+		this.session = session;
+		this.reqDao =  reqDao;
+		this.employees = emps;
+		this.departments = depts;
+	}
 	@Override
 	public void add(Employee emp, Team name) {
-		if(employees == null) {
-			employees = new HashMap<>();
-		}
+//		if(employees == null) {
+//			employees = new HashMap<>();
+//		}
 	// Set new employee department before add
 		configureDept(emp, name);
 		String manager = emp.getManager() == null ? "None" : emp.getManager();
 		emp.setManager(manager);
 		
 		String query;
-		if((searchEmployees(emp.getUsername())) != null) {
-			System.out.println("Employee already registered in DB - updating account details instead");
-			
-			query = "Update employee Set name = ?, email = ?, message = ?, department = ?, role = ?, manager = ?, " +
-			"history = ?, reimburserecvd = ?, reimbursebal = ? where username = ?;";
-
-			SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
-			BoundStatement bound = session.prepare(s)
-					.bind(emp.getName(), emp.getEmail(), emp.getMessage(), emp.getDept().toString(), Role.toString(emp.getRole()), emp.getManager(),
-							RequestDAOImpl.transformRequest(emp.getHistory()), emp.getReimburseRecvd(), emp.getReimburseBalance(), emp.getUsername());
-			session.execute(bound);
-			String apostrophe = emp.getUsername().substring(emp.getUsername().length()-1).equals("s") ? "'" : "'s";
-			System.out.println(emp.getUsername() + apostrophe + " account details updated successfully");
+		if((search(emp.getUsername())) != null) {
+			System.out.println("Employee already in DB. Use update to modify account details");
 			return;
 		}
 		
 		query = "Insert into employee (id, username, name, email, message, birthday, department, role, manager, "
-				+ "pendingReview, history, reimburserecvd, reimbursebal, lastRenewal) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+				+ "approvalchain, pendingReview, history, reimburserecvd, reimbursebal, lastRenewal) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
 		SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
 		BoundStatement bound = session.prepare(s)
-				.bind(emp.getId(), emp.getUsername(), emp.getName(), emp.getEmail(), emp.getMessage(), emp.getBirthday(),emp.getDept().toString(), Role.toString(emp.getRole()),
-						 emp.getManager(), qToList(emp.getPendingReview()), RequestDAOImpl.transformRequest(emp.getHistory()), emp.getReimburseRecvd(), emp.getReimburseBalance(), emp.getLastRenewal());
+				.bind(emp.getId(), emp.getUsername(), emp.getName(), emp.getEmail(), emp.getMessage(), emp.getBirthday(), Team.toString(emp.getDept().getName()), Role.toString(emp.getRole()),
+						 emp.getManager(), new ArrayList<String>(emp.getApprovalChain()), qToList(emp.getPendingReview()), RequestDAOImpl.transformRequest(emp.getHistory()), emp.getReimburseRecvd(), emp.getReimburseBalance(), emp.getLastRenewal());
 		session.execute(bound);
 		
-		employees.put(emp.getId(), emp); 	// review: may not be necessary
+		employees.put(emp.getId(), emp); 
 		System.out.println("Adding employee to Team: " + name);
-		emp.getDept().getMembers().add(emp.getUsername());	// review may not be necessary
+		emp.getDept().getMembers().put(emp.getId(), emp.getUsername());
 		
 		System.out.println(emp.getName() + " has been successfully added to company database");
 	}
@@ -94,16 +91,12 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 	@Override
 	public void update(Employee emp) {
 		String query = "Update employee Set name = ?, email = ?, message = ?, birthday = ?, department = ?, role = ?, manager = ?, " +
-		"pendingreview = ?, history = ?, reimburserecvd = ?, reimbursebal = ?, lastrenewal = ? where username = ?;";
-//		List<UUID> history = emp.getHistory()
-//				.stream()
-//				.filter(req -> req!=null)
-//				.map(req -> req.getId())
-//				.collect(Collectors.toList());
+		"approvalchain = ?, pendingreview = ?, history = ?, reimburserecvd = ?, reimbursebal = ?, lastrenewal = ? where username = ?;";
+
 		SimpleStatement s = new SimpleStatementBuilder(query).setConsistencyLevel(DefaultConsistencyLevel.LOCAL_QUORUM).build();
 		BoundStatement bound = session.prepare(s)
-				.bind(emp.getName(), emp.getEmail(), emp.getMessage(), emp.getBirthday(), emp.getDept().toString(), Role.toString(emp.getRole()), emp.getManager(),
-						qToList(emp.getPendingReview()), RequestDAOImpl.transformRequest(emp.getHistory()), emp.getReimburseRecvd(), emp.getReimburseBalance(), emp.getLastRenewal(), emp.getUsername());
+				.bind(emp.getName(), emp.getEmail(), emp.getMessage(), emp.getBirthday(), Team.toString(emp.getDept().getName()), Role.toString(emp.getRole()), emp.getManager(),
+						new ArrayList<String>(emp.getApprovalChain()), qToList(emp.getPendingReview()), RequestDAOImpl.transformRequest(emp.getHistory()), emp.getReimburseRecvd(), emp.getReimburseBalance(), emp.getLastRenewal(), emp.getUsername());
 		session.execute(bound);
 		String apostrophe = emp.getUsername().substring(emp.getUsername().length()-1).equals("s") ? "'" : "'s";
 		System.out.println(emp.getUsername() + apostrophe + " account details updated successfully");
@@ -111,92 +104,79 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 
 	@Override
 	public Employee get(String username) {
-		String query = "Select id, username, name, email, message, birthday, department, role, manager, "
+		String query = "Select id, username, name, email, message, birthday, department, role, manager, approvalchain, "
 		+ "pendingReview, history, reimburserecvd, reimbursebal, lastrenewal from employee where username = ?";
 		SimpleStatement s = new SimpleStatementBuilder(query).build();
 		BoundStatement bound = session.prepare(s).bind(username);
 
 		ResultSet rs = session.execute(bound);
-		
-		if(rs == null) {
+		Row row = rs.one();
+	
+		if(row == null) {
 			System.out.println("No employee registered in database with username: " + username);
 			// if there are no return values
 			return null;
 		}
-		Row row = rs.one();
 		
 		Employee emp = new Employee(username);
+		emp.setId(row.getInt("id"));
+		emp.setName(row.getString("name"));
 		emp.setUsername(row.getString("username"));
 		emp.setEmail(row.getString("email"));
 		emp.setMessage(row.getString("message"));
 		emp.setBirthday(row.getLocalDate("birthday"));
 		List<UUID> history = row.getList("history", UUID.class);
+		System.out.println("Submitted Requests: " + history);
 		if(history != null && history.size() > 0)
-			emp.setHistory(rd.revertRequest(history));
+			emp.setHistory(reqDao.revertRequest(history));
 		
 		else {
 			List<Request> new_list = new ArrayList<Request>();
 			emp.setHistory(new_list);
 		}
-				emp.setDept(searchDept(Team.valueOf(row.getString("department"))));
-		emp.setRole(Role.valueOf(row.getString("role")));
+		
+		Stack<String> approval_chain = new Stack<String>();
+		approval_chain.addAll(new ArrayList<>(row.getList("approvalchain", String.class)));
+		emp.setApprovalChain(approval_chain);
+		
+		List<UUID> review = row.getList("pendingreview", UUID.class);
+		Queue<Request> new_review = new LinkedList<Request>();
+		System.out.println("Pending review requests: " + review);
+		if(review != null && review.size() > 0) {
+			new_review.addAll(reqDao.revertRequest(review));
+			emp.setPendingReview(new_review);
+			
+		}
+		
+		else {
+			Queue<Request> new_q = new LinkedList<Request>();
+			emp.setPendingReview(new_q);
+		}
+		emp.setDept(searchDept(Team.getTeam(row.getString("department"))));
+		emp.setRole(Role.getValue(row.getString("role")));
 		emp.setManager(row.getString("manager"));
 		emp.setReimburseRecvd(row.getDouble("reimburserecvd"));
 		emp.setReimburseBalance(row.getDouble("reimbursebal"));
 		emp.setLastRenewal(row.getLocalDate("lastrenewal"));
-////	row = rs.one();
-////	if(row != null)
-////		throw new RuntimeException("More than one employee with same username");
-////
 		
 		return emp;
 	}
 
-//	@Override
-//	public Employee getEmployeeByID(Integer eid) {
-//		String query = "Select username, type, email, currency, birthday, lastCheckIn from user where username=?";
-//		SimpleStatement s = new SimpleStatementBuilder(query).build();
-//		BoundStatement bound = session.prepare(s).bind(username);
-//		// ResultSet is the values returned by my query.
-//		ResultSet rs = session.execute(bound);
-//		Row row = rs.one();
-//		if(row == null) {
-//			// if there is no return values
-//			return null;
-//		}
-//		User u = new User();
-//		u.setUsername(row.getString("username"));
-//		u.setEmail(row.getString("email"));
-//		u.setCurrency(row.getLong("currency"));
-//		u.setType(UserType.valueOf(row.getString("type")));
-//		u.setBirthday(row.getLocalDate("birthday"));
-//		u.setLastCheckIn(row.getLocalDate("lastcheckin"));
-////		row = rs.one();
-////		if(row != null) {
-////			throw new RuntimeException("More than one user with same username");
-////		}
-//		return u;
-//		return null;
-//	}
-
 	@Override
 	public List<Employee> getEmployees() {
-		if(employees == null) {
-			employees = new HashMap<>();
-		}
 		
 		String query = "Select id, username, name, email, message, birthday, department, role, manager, "
 		+ "pendingReview, history, reimburseRecvd, reimburseBal, lastRenewal from employee";
 		SimpleStatement s = new SimpleStatementBuilder(query).build();
 
 		ResultSet rs = session.execute(s);
-		if(rs == null) {
+		if(rs.iterator() == null) {
 			System.out.println("No employees currrently registered in database");
 			// if there are no return values
 			return null;
 		}
 		
-		
+		employees = new HashMap<>();	
 		
 		rs.forEach(row -> {	
 			String username = row.getString("username");
@@ -207,15 +187,36 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 			emp.setMessage(row.getString("message"));
 			emp.setBirthday(row.getLocalDate("birthday"));
 			List<UUID> history = row.getList("history", UUID.class);
-			if(history != null && history.size() > 0)
-				emp.setHistory(rd.revertRequest(history));
+			if(history != null && history.size() > 0) {
+				System.out.println(history);
+				emp.setHistory(reqDao.revertRequest(history));
+			}
 			
 			else {
 				List<Request> new_list = new ArrayList<Request>();
 				emp.setHistory(new_list);
 			}
 			
-			emp.setDept(searchDept(Team.valueOf(row.getString("department"))));
+			
+			Stack<String> approval_chain = new Stack<String>();
+			approval_chain.addAll(new ArrayList<>(row.getList("approvalchain", String.class)));
+			emp.setApprovalChain(approval_chain);
+			
+			List<UUID> review = row.getList("pendingreview", UUID.class);
+			Queue<Request> new_review = new LinkedList<Request>();
+			System.out.println("Pending review requests: " + review);
+			if(review != null && review.size() > 0) {
+				new_review.addAll(reqDao.revertRequest(review));
+				emp.setPendingReview(new_review);
+				
+			}
+			
+			else {
+				Queue<Request> new_q = new LinkedList<Request>();
+				emp.setPendingReview(new_q);
+			}
+			
+			emp.setDept(searchDept(Team.getTeam(row.getString("department"))));
 			emp.setRole(Role.getValue(row.getString("role")));
 			emp.setManager(row.getString("manager"));
 			emp.setReimburseRecvd(row.getDouble("reimburserecvd"));
@@ -254,18 +255,18 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		// add employee as department head if it's their title
 		if(name == Team.ALL && emp.getRole() == Role.FOUNDER) {
 			emp.getDept().setDeptHead(emp.getUsername());
-			emp.getDept().getMembers().add(emp.getUsername());
+			emp.getDept().getMembers().put(emp.getId(), emp.getUsername());
 			System.out.println("New member (" + emp.getName() + ") for Department " + name.toString() + " added as " + emp.getRole().toString());
 			return;
 		}
 		
 		if(emp.getRole() == Role.DEPARTMENT_HEAD) {
 			emp.getDept().setDeptHead(emp.getUsername());
-			emp.getDept().getMembers().add(emp.getUsername());
+			emp.getDept().getMembers().put(emp.getId(), emp.getUsername());
 			System.out.println("New member (" + emp.getName() + ") for Department " + name.toString() + " added as " + emp.getRole().toString());
 		}
 		else {
-			emp.getDept().getMembers().add(emp.getUsername());
+			emp.getDept().getMembers().put(emp.getId(), emp.getUsername());
 			System.out.println("New member (" + emp.getName() + ") for Department " + name.toString() + " added as " + emp.getRole().toString());
 		}
 	}
@@ -274,11 +275,12 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		// Set approval chain based on employee type
 		Employee next_approver = null;
 		Department benefits = searchDept(Team.BENEFITS);
-		for(String username : benefits.getMembers()) {
+		List<String> members = new ArrayList<String>(benefits.getMembers().values());
+		for(String username : members) {
 			if(!username.equalsIgnoreCase(emp.getUsername())) {
-				next_approver = searchEmployees(username);
+				next_approver = search(username);
 				if(next_approver.getRole() == Role.COORDINATOR) {
-					next_approver = searchEmployees(username); 
+					next_approver = search(username); 
 					break;
 				}
 			}
@@ -296,7 +298,7 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		// If CEO or Dept Head - requires approval from FOUNDER and BenCo
 		// If Manager - requires approval from Dept head & BenCo
 		if(emp.getRole() != Role.COORDINATOR) {
-			next_approver = searchEmployees(emp.getManager());
+			next_approver = search(emp.getManager());
 			emp.getApprovalChain().add(next_approver.getUsername());
 			System.out.println("Approval chain configured for " + emp.getUsername() + " as follows: ");
 			showApprovalChain(emp);
@@ -304,65 +306,16 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		}		
 		
 		// If Coordinator - requires approval from Manager / Supervisor, Department head and BenCo
-		Employee mgr = searchEmployees(emp.getDept().getDeptHead());
+		Employee mgr = search(emp.getDept().getDeptHead());
 		next_approver = mgr;
 		emp.getApprovalChain().add(next_approver.getUsername());
-		next_approver = searchEmployees(emp.getManager());
+		next_approver = search(emp.getManager());
 		emp.getApprovalChain().add(next_approver.getUsername());
 		System.out.println("Approval chain configured for " + emp.getUsername() + " as follows: ");
 		showApprovalChain(emp);
+		update(emp);
 		return;
 
-//		// Add benefits coordinator or head to approval chain
-//		Department temp = searchDept(Team.BENEFITS);
-//		Employee next_approver = null;
-//		if(temp.getMembers().size() == 1) {		// Only 1 member of team (department head) will approve
-//			next_approver = temp.getMembers().get(0);
-//			emp.getApprovalChain().add(next_approver);
-//		}
-//		else {	// Assign to first coordinator found in department
-//			for(Employee e : temp.getMembers()) {
-//				if(!e.getUsername().equalsIgnoreCase(emp.getUsername())) {
-//					next_approver = e;
-//					if(next_approver.getRole() == Role.COORDINATOR) {
-//						emp.getApprovalChain().add(next_approver); 
-//						break;
-//					}
-//				}
-//				emp.getApprovalChain().add(next_approver);
-//				
-//			}
-//		}
-//		// Add Founder to approval chain if DH or CEO else add DH
-//		if(emp.getRole() == Role.DEPARTMENT_HEAD || emp.getRole() == Role.CEO) {
-//			next_approver = searchDept(Team.ALL).getDeptHead();
-//			emp.getApprovalChain().add(next_approver);
-//			emp.setManager(next_approver.getUsername());
-//		}
-//		
-//		else {
-//			next_approver = emp.getDept().getDeptHead();
-//			emp.getApprovalChain().add(next_approver);
-//			
-//			// Add direct manager or supervisor
-//			if(emp.getManager() == null) {
-//				System.out.println("No manager assigned to " + emp.getUsername() + " to complete approval chain");
-//				return;
-//			}
-//			
-//			if(emp.getManager().equalsIgnoreCase(next_approver.getUsername())) {	// Employee is a manager so no further approval required
-//				System.out.println("Approval chain configured for " + emp.getUsername() + " as follows: ");
-//				showApprovalChain(emp);
-//				return;
-//			}
-//			
-//			else {
-//				next_approver = EmployeeService.searchEmployees(emp.getManager());
-//				emp.getApprovalChain().add(next_approver);
-//				showApprovalChain(emp);
-//				return;
-//			}
-//		}
 	}
 	
 	public void showApprovalChain(Employee emp) {
@@ -387,7 +340,7 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		ResultSet rs = session.execute(bound);
 		Row row = rs.one();
 		if(row == null) {
-			// if there is no return values
+			// if there is no return value
 			return null;
 		}
 		List<UUID> req_history = row.getList("history", UUID.class);
@@ -410,23 +363,26 @@ public class EmployeeDAOImpl implements EmployeeDAO {
 		return result;
 	}
 
-	public Employee searchEmployees(String username) {
+	public Employee search(String username) {
 		System.out.println("Searching for employee with username: " + username);
-		
-		if(EmployeeDAOImpl.employees == null) {
-			System.out.println("No employees found in local records during search...\nRepopulating data structures from DB");
-			getEmployees();
-		}
-		System.out.println("Searching employee DB of size: " + EmployeeDAOImpl.employees.size() + "\nfor " + username);
-		System.out.println(EmployeeDAOImpl.employees.toString());
-		List<Employee> emps = new ArrayList<Employee>(EmployeeDAOImpl.employees.values());
-		if(EmployeeDAOImpl.employees != null) {
-			for(Employee e : emps) {
+//		
+		System.out.println("No employees found in local records during search...\nRepopulating data structures from DB");
+//		getEmployees();
+		if(employees != null && employees.size() > 0) {
+			System.out.println("Searching employee DB of size: " + employees.size() + "\nfor " + username);
+			System.out.println(EmployeeDAOImpl.employees.toString());
+			for(Employee e : new ArrayList<Employee>(employees.values())) {
 				if(e.getUsername().equalsIgnoreCase(username)) {
 					System.out.println("Found " + username + " in employee list");
 					return e;
 				}
 			}
+		}
+				
+		Employee emp = get(username);
+		if(emp != null) {
+			System.out.println("Found " + username + " in database");
+			return emp;
 		}
 		
 		System.out.println("No employee found with username: " + username);

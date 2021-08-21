@@ -1,7 +1,9 @@
 package com.revature.model;
 
+// Default values: 	LOW(60_000_000), MEDIUM(30_000_000), HIGH(12_000_000), URGENT(6_000_000);
+
 public enum Priority {
-	LOW(60_000_000), MEDIUM(30_000_000), HIGH(12_000_000), URGENT(6_000_000);
+	LOW(10_000), MEDIUM(7_000), HIGH(5_000), URGENT(2_000);
 	
 	private int timer;
 	

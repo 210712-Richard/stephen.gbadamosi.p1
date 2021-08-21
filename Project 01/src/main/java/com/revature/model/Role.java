@@ -26,7 +26,6 @@ public enum Role {
 	public static Role getValue(String role) {
 		if(role.equalsIgnoreCase("Founder"))
 			return FOUNDER;
-
 		if(role.equalsIgnoreCase("CEO"))
 			return CEO;
 		if(role.equalsIgnoreCase("Head of Department"))

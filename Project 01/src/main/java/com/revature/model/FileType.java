@@ -16,7 +16,7 @@ public enum FileType {
 			case EMAIL: 
 				return "email";
 			case DOCUMENT:
-				return "document";			
+				return "presentation";			
 			default: 
 				System.out.println("Invalid file type");
 				return null;

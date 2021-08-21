@@ -1,7 +1,7 @@
 package com.revature.model;
 
 public enum Status {
-	NEW, IN_PROGRESS, PENDING_REVIEW, APPROVED, APPEAL;
+	NEW, IN_PROGRESS, DOCUMENT_REQUESTED, PENDING_REVIEW, CANCELLED, DENIED, APPROVED, APPEAL;
 	
 	public int numApprovals;
 

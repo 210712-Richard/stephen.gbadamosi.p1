@@ -6,33 +6,33 @@ public enum Coverage implements Serializable {
 	UNIVERSITY_COURSES(.80), SEMINARS(.60), CERT_PREP(.75), CERTIFICATION(1.0),
 	TECH_TRAINING(.90), OTHER(.30);
 
-	private Double type;
+	private Double value;
 	
-	Coverage(Double type) {
-		this.type = type;
+	Coverage(Double value) {
+		this.value = value;
 	}
 	
-	public Double getType() {
-		return this.type;
+	public Double getValue() {
+		return this.value;
 	}
 	
-	public Coverage getCoverage(String type) {
-		if(type.equalsIgnoreCase("UC") || type.equalsIgnoreCase("University Course")) {
+	public static Coverage getCoverage(String type) {
+		if(type.equalsIgnoreCase("UNIVERSITY_COURSES") || type.equalsIgnoreCase("University Course")) {
 			return UNIVERSITY_COURSES;
 		}
-		if(type.equalsIgnoreCase("SEM") || type.equalsIgnoreCase("Seminar")) {
+		if(type.equalsIgnoreCase("SEMINARS") || type.equalsIgnoreCase("Seminar")) {
 			return SEMINARS;
 		}
-		if(type.equalsIgnoreCase("CPC") || type.equalsIgnoreCase("Certification Preparation Class")) {
+		if(type.equalsIgnoreCase("CERT_PREP") || type.equalsIgnoreCase("Certification Preparation Class")) {
 			return CERT_PREP;
 		}
-		if(type.equalsIgnoreCase("CERT") || type.equalsIgnoreCase("Certification")) {
+		if(type.equalsIgnoreCase("CERTIFICATION") || type.equalsIgnoreCase("Certification")) {
 			return CERTIFICATION;
 		}
-		if(type.equalsIgnoreCase("TT") || type.equalsIgnoreCase("Technical Training") || type.equalsIgnoreCase("Tech Training")) {
+		if(type.equalsIgnoreCase("TECH_TRAINING") || type.equalsIgnoreCase("Technical Training") || type.equalsIgnoreCase("Tech Training")) {
 			return TECH_TRAINING;
 		}
-		if(type.equalsIgnoreCase("O") || type.equalsIgnoreCase("Other")) {
+		if(type.equalsIgnoreCase("OTHER") || type.equalsIgnoreCase("Other")) {
 			return OTHER;
 		}
 		
