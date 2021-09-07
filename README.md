@@ -20,7 +20,7 @@ for employees for purchases on reimbursable events (ex Certifications, Universit
 that group depending on employee role is required for reimbursements to be processed
 * Approvers can request additional documentation for reimbursement to be processed
 * Requestor can attach email approvals to satisfy Manager or Department Head approvals
-* Auto-approvals can occur is Manager or Department Head don't respond to request in alloted time
+* Auto-approvals can occur if Manager or Department Head don't respond to request in alloted time
 * Auto-approvals do not occur with Benefits Coordinator, instead a notification is sent
 * Benefits Coordinators can adjust the reimbursement amount
 
